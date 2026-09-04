@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Necklace → Earrings Matcher</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f7f4f0;
+            color: #2b2927;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 20px 60px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            font-size: 38px;
+        }
+
+        .subtitle {
+            color: #6b6661;
+            font-size: 16px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.06);
+        }
+
+        .panel h2 {
+            margin-top: 0;
+            font-size: 21px;
+        }
+
+        .necklace-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+        }
+
+        .necklace-card {
+            border: 2px solid transparent;
+            border-radius: 12px;
+            padding: 8px;
+            cursor: pointer;
+            background: #fafafa;
+            transition: 0.2s;
+        }
+
+        .necklace-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .necklace-card.selected {
+            border-color: #333;
+        }
+
+        .necklace-card img {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .necklace-card p {
+            text-align: center;
+            margin: 8px 0 2px;
+            font-weight: bold;
+        }
+
+        .upload-area {
+            border: 2px dashed #bbb;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            background: #fafafa;
+        }
+
+        input[type="file"] {
+            margin-top: 15px;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-top: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        .value {
+            color: #666;
+            font-weight: normal;
+        }
+
+        button {
+            width: 100%;
+            margin-top: 25px;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 10px;
+            background: #222;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #444;
+        }
+
+        button:disabled {
+            background: #aaa;
+            cursor: not-allowed;
+        }
+
+        .status {
+            margin-top: 15px;
+            text-align: center;
+            color: #666;
+        }
+
+        .results {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .result-card {
+            background: #fafafa;
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .result-card img {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .result-card h3 {
+            margin: 10px 0 5px;
+        }
+
+        .score {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .error {
+            color: #b00020;
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        @media (max-width: 800px) {
+            .necklace-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .results {
+                grid-template-columns: 1fr;
+            }
+
+            .controls {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 30px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <header>
+        <h1>Necklace → Earrings Matcher</h1>
+        <div class="subtitle">
+            Select a necklace or upload an image to find visually matching earrings.
+        </div>
+    </header>
+
+    <!-- Necklace Selection -->
+    <section class="panel">
+        <h2>1. Select a Necklace</h2>
+
+        <div id="necklaceGrid" class="necklace-grid">
+            <p>Loading necklaces...</p>
+        </div>
+    </section>
+
+    <!-- Upload -->
+    <section class="panel">
+        <h2>2. Or Upload a Necklace Image</h2>
+
+        <div class="upload-area">
+            <div>
+                Upload a JPG, JPEG, or PNG image.
+            </div>
+
+            <input
+                type="file"
+                id="imageInput"
+                accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+            >
+        </div>
+    </section>
+
+    <!-- Controls -->
+    <section class="panel">
+
+        <h2>3. Matching Settings</h2>
+
+        <div class="controls">
+
+            <div>
+                <label for="topK">
+                    Number of Recommendations:
+                    <span id="topKValue" class="value">3</span>
+                </label>
+
+                <input
+                    type="range"
+                    id="topK"
+                    min="1"
+                    max="6"
+                    value="3"
+                >
+            </div>
+
+            <div>
+                <label for="colorWeight">
+                    Colour Weight:
+                    <span id="colorWeightValue" class="value">70%</span>
+                </label>
+
+                <input
+                    type="range"
+                    id="colorWeight"
+                    min="0"
+                    max="100"
+                    value="70"
+                >
+            </div>
+
+        </div>
+
+        <button id="recommendButton">
+            Find Matching Earrings
+        </button>
+
+        <div id="status" class="status"></div>
+        <div id="error" class="error"></div>
+
+    </section>
+
+    <!-- Results -->
+    <section id="resultsPanel" class="panel hidden">
+
+        <h2>Recommended Earrings</h2>
+
+        <div id="results" class="results"></div>
+
+    </section>
+
+</div>
+
+
+<script>
+
+    let selectedNecklaceId = null;
+
+    const necklaceGrid = document.getElementById("necklaceGrid");
+    const imageInput = document.getElementById("imageInput");
+    const recommendButton = document.getElementById("recommendButton");
+
+    const topK = document.getElementById("topK");
+    const topKValue = document.getElementById("topKValue");
+
+    const colorWeight = document.getElementById("colorWeight");
+    const colorWeightValue = document.getElementById("colorWeightValue");
+
+    const status = document.getElementById("status");
+    const errorBox = document.getElementById("error");
+
+    const resultsPanel = document.getElementById("resultsPanel");
+    const resultsContainer = document.getElementById("results");
+
+
+    // Update slider labels
+    topK.addEventListener("input", () => {
+        topKValue.textContent = topK.value;
+    });
+
+    colorWeight.addEventListener("input", () => {
+        colorWeightValue.textContent = `${colorWeight.value}%`;
+    });
+
+
+    // Load necklace catalog
+    async function loadNecklaces() {
+
+        try {
+
+            const response = await fetch("/api/catalog");
+
+            if (!response.ok) {
+                throw new Error("Could not load necklace catalog.");
+            }
+
+            const data = await response.json();
+
+            necklaceGrid.innerHTML = "";
+
+            data.necklaces.forEach(necklace => {
+
+                const card = document.createElement("div");
+
+                card.className = "necklace-card";
+
+                card.innerHTML = `
+                    <img
+                        src="${necklace.image_url}"
+                        alt="${necklace.id}"
+                    >
+                    <p>${necklace.id}</p>
+                `;
+
+                card.addEventListener("click", () => {
+
+                    document
+                        .querySelectorAll(".necklace-card")
+                        .forEach(c => c.classList.remove("selected"));
+
+                    card.classList.add("selected");
+
+                    selectedNecklaceId = necklace.id;
+
+                    // Selecting a catalog necklace clears an uploaded image.
+                    imageInput.value = "";
+
+                    clearMessages();
+                });
+
+                necklaceGrid.appendChild(card);
+            });
+
+        } catch (error) {
+
+            necklaceGrid.innerHTML = "";
+
+            errorBox.textContent = error.message;
+        }
+    }
+
+
+    // Clear status/error messages
+    function clearMessages() {
+        status.textContent = "";
+        errorBox.textContent = "";
+    }
+
+
+    // Run recommendation
+    recommendButton.addEventListener("click", async () => {
+
+        clearMessages();
+
+        const uploadedImage = imageInput.files[0];
+
+        if (!selectedNecklaceId && !uploadedImage) {
+
+            errorBox.textContent =
+                "Please select a necklace or upload a necklace image.";
+
+            return;
+        }
+
+        const formData = new FormData();
+
+        formData.append("top_k", topK.value);
+
+        formData.append(
+            "color_weight",
+            Number(colorWeight.value) / 100
+        );
+
+        if (uploadedImage) {
+
+            formData.append("image", uploadedImage);
+
+        } else {
+
+            formData.append("necklace_id", selectedNecklaceId);
+        }
+
+        recommendButton.disabled = true;
+
+        status.textContent = "Finding matching earrings...";
+
+        resultsPanel.classList.add("hidden");
+
+        try {
+
+            const response = await fetch(
+                "/api/recommend",
+                {
+                    method: "POST",
+                    body: formData
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Recommendation failed.");
+            }
+
+            displayResults(data);
+
+        } catch (error) {
+
+            errorBox.textContent = error.message;
+
+        } finally {
+
+            recommendButton.disabled = false;
+
+            status.textContent = "";
+        }
+    });
+
+
+    // Display recommendations
+    function displayResults(data) {
+
+        resultsContainer.innerHTML = "";
+
+        if (!data.recommendations ||
+            data.recommendations.length === 0) {
+
+            errorBox.textContent =
+                "No matching earrings were found.";
+
+            return;
+        }
+
+        data.recommendations.forEach((item, index) => {
+
+            const card = document.createElement("div");
+
+            card.className = "result-card";
+
+            const percentage =
+                (Number(item.score) * 100).toFixed(1);
+
+            card.innerHTML = `
+                <img
+                    src="${item.image_url}"
+                    alt="${item.id}"
+                >
+
+                <h3>
+                    #${index + 1} — ${item.id}
+                </h3>
+
+                <div class="score">
+                    Similarity: ${percentage}%
+                </div>
+            `;
+
+            resultsContainer.appendChild(card);
+        });
+
+        resultsPanel.classList.remove("hidden");
+
+        resultsPanel.scrollIntoView({
+            behavior: "smooth"
+        });
+    }
+
+
+    // Start application
+    loadNecklaces();
+
+</script>
+
+</body>
+</html>
