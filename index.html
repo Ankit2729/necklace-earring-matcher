@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Necklace → Earring Matcher</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f7f7f7;
+            color: #222;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            padding: 35px 20px;
+        }
+
+        h1 {
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 3px 15px rgba(0,0,0,0.08);
+        }
+
+        .necklaces {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+        }
+
+        .necklace {
+            border: 2px solid transparent;
+            border-radius: 10px;
+            padding: 8px;
+            background: #fafafa;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .necklace:hover {
+            transform: translateY(-2px);
+        }
+
+        .necklace.selected {
+            border-color: #222;
+        }
+
+        .necklace img {
+            width: 100%;
+            height: 150px;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+
+        .necklace-name {
+            text-align: center;
+            font-weight: bold;
+            margin-top: 7px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        input[type="range"] {
+            width: 200px;
+        }
+
+        button {
+            border: none;
+            border-radius: 8px;
+            padding: 12px 20px;
+            background: #222;
+            color: white;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        button:hover {
+            background: #444;
+        }
+
+        .selected-preview {
+            max-width: 220px;
+            max-height: 220px;
+            object-fit: contain;
+            border-radius: 10px;
+        }
+
+        .results {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .result {
+            background: #fafafa;
+            padding: 12px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .result img {
+            width: 100%;
+            height: 250px;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+
+        .score {
+            font-weight: bold;
+            margin-top: 8px;
+        }
+
+        .loading {
+            display: none;
+            margin-top: 15px;
+            color: #666;
+        }
+
+        .error {
+            color: #b00020;
+            margin-top: 15px;
+        }
+
+        @media (max-width: 800px) {
+            .necklaces {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .results {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>💍 Necklace → Matching Earrings</h1>
+
+    <div class="subtitle">
+        Select a necklace or upload your own image to find visually matching earrings.
+    </div>
+
+    <!-- Necklace Selection -->
+    <div class="panel">
+
+        <h2>1. Choose a Necklace</h2>
+
+        <div id="necklaces" class="necklaces"></div>
+
+    </div>
+
+
+    <!-- Upload / Settings -->
+    <div class="panel">
+
+        <h2>2. Matching Options</h2>
+
+        <div class="controls">
+
+            <label>
+                Upload necklace:
+                <input type="file"
+                       id="upload"
+                       accept=".jpg,.jpeg,.png">
+            </label>
+
+            <label>
+                Number of recommendations:
+                <select id="topK">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3" selected>3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                </select>
+            </label>
+
+            <label>
+                Colour weight:
+                <input
+                    type="range"
+                    id="colorWeight"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value="0.7"
+                >
+                <span id="colorValue">70%</span>
+            </label>
+
+            <button onclick="recommend()">
+                Find Matching Earrings
+            </button>
+
+        </div>
+
+        <div id="loading" class="loading">
+            Finding the best visual matches...
+        </div>
+
+        <div id="error" class="error"></div>
+
+    </div>
+
+
+    <!-- Results -->
+    <div class="panel">
+
+        <h2>3. Recommended Earrings</h2>
+
+        <div id="results" class="results"></div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+const necklaces = [
+    {
+        id: "N01",
+        image: "Nck_1.jpg"
+    },
+    {
+        id: "N02",
+        image: "Nck_2.jpg"
+    },
+    {
+        id: "N03",
+        image: "Nck_3.jpg"
+    },
+    {
+        id: "N04",
+        image: "Nck_4.jpg"
+    },
+    {
+        id: "N05",
+        image: "Nck_5.jpg"
+    }
+];
+
+let selectedNecklace = "N01";
+
+
+function loadNecklaces() {
+
+    const container = document.getElementById("necklaces");
+
+    necklaces.forEach(n => {
+
+        const div = document.createElement("div");
+
+        div.className =
+            "necklace" +
+            (n.id === selectedNecklace ? " selected" : "");
+
+        div.innerHTML = `
+            <img src="/images/${n.image}" alt="${n.id}">
+            <div class="necklace-name">${n.id}</div>
+        `;
+
+        div.onclick = () => {
+
+            selectedNecklace = n.id;
+
+            document
+                .querySelectorAll(".necklace")
+                .forEach(x => x.classList.remove("selected"));
+
+            div.classList.add("selected");
+
+            document.getElementById("upload").value = "";
+
+        };
+
+        container.appendChild(div);
+
+    });
+}
+
+
+document
+    .getElementById("colorWeight")
+    .addEventListener("input", function() {
+
+        const value = Math.round(this.value * 100);
+
+        document.getElementById("colorValue").textContent =
+            value + "%";
+
+    });
+
+
+async function recommend() {
+
+    const upload =
+        document.getElementById("upload");
+
+    const topK =
+        document.getElementById("topK").value;
+
+    const colorWeight =
+        document.getElementById("colorWeight").value;
+
+    const loading =
+        document.getElementById("loading");
+
+    const error =
+        document.getElementById("error");
+
+    const results =
+        document.getElementById("results");
+
+    error.textContent = "";
+    results.innerHTML = "";
+
+    loading.style.display = "block";
+
+    const formData = new FormData();
+
+    formData.append("top_k", topK);
+    formData.append("color_weight", colorWeight);
+
+    if (upload.files.length > 0) {
+
+        formData.append(
+            "image",
+            upload.files[0]
+        );
+
+    } else {
+
+        formData.append(
+            "necklace_id",
+            selectedNecklace
+        );
+
+    }
+
+
+    try {
+
+        const response =
+            await fetch("/api/recommend", {
+                method: "POST",
+                body: formData
+            });
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.error || "Recommendation failed."
+            );
+
+        }
+
+
+        data.recommendations.forEach(r => {
+
+            const div =
+                document.createElement("div");
+
+            div.className = "result";
+
+            div.innerHTML = `
+                <img
+                    src="${r.image_url}"
+                    alt="${r.id}"
+                >
+
+                <h3>${r.id}</h3>
+
+                <div class="score">
+                    Similarity: ${r.score}
+                </div>
+            `;
+
+            results.appendChild(div);
+
+        });
+
+    } catch (err) {
+
+        error.textContent =
+            "Error: " + err.message;
+
+    } finally {
+
+        loading.style.display = "none";
+
+    }
+
+}
+
+
+loadNecklaces();
+
+</script>
+
+</body>
+</html>
